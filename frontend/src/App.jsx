@@ -1,6 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import bgImage from "./assets/garage-bg.jpg"; // <-- Make sure this file exists
 
 const API = "http://localhost:8000";
+
+function money(n) {
+  if (n === null || n === undefined || n === "") return "—";
+  const num = Number(n);
+  return Number.isFinite(num) ? `$${num.toLocaleString()}` : `$${n}`;
+}
 
 export default function App() {
   const [form, setForm] = useState({
@@ -11,16 +18,23 @@ export default function App() {
     radius: "50",
     max_price: "20000",
   });
+
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [saved, setSaved] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [sort, setSort] = useState("price_asc");
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   async function loadSaved() {
-    const r = await fetch(`${API}/api/saved`);
-    setSaved(await r.json());
+    try {
+      const r = await fetch(`${API}/api/saved`);
+      const data = await r.json();
+      setSaved(Array.isArray(data) ? data : []);
+    } catch {
+      setSaved([]);
+    }
   }
 
   useEffect(() => {
@@ -29,16 +43,21 @@ export default function App() {
 
   async function search() {
     setLoading(true);
-    setResults([]);
-    const qs = new URLSearchParams(form).toString();
-    const r = await fetch(`${API}/api/search?${qs}`);
-    const data = await r.json();
-    setResults(data.listings || []);
-    setLoading(false);
+    setAlerts([]);
+    try {
+      const qs = new URLSearchParams(form).toString();
+      const r = await fetch(`${API}/api/search?${qs}`);
+      const data = await r.json();
+      setResults(Array.isArray(data?.listings) ? data.listings : []);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function saveSearch() {
-    const name = prompt("Name this alert/search (e.g., 'Camry under 20k near USC'):");
+    const name = prompt("Name this saved search:");
     if (!name) return;
 
     const body = new URLSearchParams({
@@ -58,177 +77,155 @@ export default function App() {
   async function runAlerts() {
     const r = await fetch(`${API}/api/alerts`);
     const data = await r.json();
-    setAlerts(data.matches || []);
+    setAlerts(Array.isArray(data?.matches) ? data.matches : []);
   }
+
+  const sortedResults = useMemo(() => {
+    const arr = [...results];
+    arr.sort((a, b) => (a.price || 0) - (b.price || 0));
+    return arr;
+  }, [results]);
 
   return (
     <div>
-      <header className="bg-dark text-white py-4">
-        <div className="container">
-          <h1 className="h3 mb-1">Car Price Checker</h1>
-          <p className="mb-0 text-white-50">
-            Search listings by make/model/year + ZIP/radius + price threshold.
-          </p>
-        </div>
-      </header>
-
-      <main className="container my-4">
-        <div className="row g-4">
-          <div className="col-lg-4">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <h2 className="h5">Search</h2>
-
-                <div className="row g-2">
-                  <div className="col-6">
-                    <label className="form-label">Make</label>
-                    <input className="form-control" value={form.make} onChange={(e) => update("make", e.target.value)} />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label">Model</label>
-                    <input className="form-control" value={form.model} onChange={(e) => update("model", e.target.value)} />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label">Year</label>
-                    <input className="form-control" value={form.year} onChange={(e) => update("year", e.target.value)} />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label">Max Price</label>
-                    <input className="form-control" value={form.max_price} onChange={(e) => update("max_price", e.target.value)} />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label">ZIP</label>
-                    <input className="form-control" value={form.zip_code} onChange={(e) => update("zip_code", e.target.value)} />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label">Radius (mi)</label>
-                    <input className="form-control" value={form.radius} onChange={(e) => update("radius", e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="d-grid gap-2 mt-3">
-                  <button className="btn btn-primary" onClick={search} disabled={loading}>
-                    {loading ? "Searching..." : "Search Listings"}
-                  </button>
-                  <button className="btn btn-outline-secondary" onClick={saveSearch}>
-                    Save Search / Alert
-                  </button>
-                  <button className="btn btn-outline-dark" onClick={runAlerts}>
-                    Run Alerts (Demo)
-                  </button>
-                </div>
-              </div>
+      {/* HERO */}
+      <div className="gg-hero text-white">
+        <div className="container py-4">
+          <div className="d-flex align-items-center gap-3">
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: "linear-gradient(135deg, #2b6cff, #1e3a8a)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 24,
+              }}
+            >
+              🛡️
             </div>
 
-            <div className="card shadow-sm mt-4">
-              <div className="card-body">
-                <h2 className="h6 mb-3">Saved Searches</h2>
-                {saved.length === 0 ? (
-                  <div className="text-muted">None yet.</div>
-                ) : (
-                  <ul className="list-group list-group-flush">
-                    {saved.map((s) => (
-                      <li key={s.id} className="list-group-item px-0">
-                        <div className="fw-semibold">{s.name}</div>
-                        <div className="small text-muted">
-                          {s.year} {s.make} {s.model} • ZIP {s.zip} • {s.radius}mi • ≤ ${s.max_price}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-
-            {alerts.length > 0 && (
-              <div className="alert alert-success mt-4">
-                <div className="fw-semibold">Alerts Found</div>
-                <div className="small">{alerts.length} matches under your thresholds.</div>
-              </div>
-            )}
+            <h1 className="display-5 fw-bold text-white mb-0">
+              GarageGuard
+            </h1>
           </div>
 
-          <div className="col-lg-8">
-            <div className="d-flex align-items-center justify-content-between mb-2">
-              <h2 className="h5 mb-0">Results</h2>
-              <div className="text-muted small">{results.length} shown</div>
-            </div>
+          <div className="text-white-50 mt-2">
+            Smart local car price monitoring powered by MarketCheck
+          </div>
 
-            {results.length === 0 ? (
-              <div className="card shadow-sm">
-                <div className="card-body text-muted">
-                  Run a search to see listings.
-                </div>
+          {/* Search Card */}
+          <div className="bg-white text-dark mt-4 p-4 rounded-4 shadow">
+            <div className="row g-3">
+              <div className="col-md-2">
+                <input className="form-control" placeholder="Make"
+                  value={form.make}
+                  onChange={(e) => update("make", e.target.value)} />
+              </div>
+
+              <div className="col-md-2">
+                <input className="form-control" placeholder="Model"
+                  value={form.model}
+                  onChange={(e) => update("model", e.target.value)} />
+              </div>
+
+              <div className="col-md-2">
+                <input className="form-control" placeholder="Year"
+                  value={form.year}
+                  onChange={(e) => update("year", e.target.value)} />
+              </div>
+
+              <div className="col-md-2">
+                <input className="form-control" placeholder="Max Price"
+                  value={form.max_price}
+                  onChange={(e) => update("max_price", e.target.value)} />
+              </div>
+
+              <div className="col-md-2">
+                <input className="form-control" placeholder="ZIP"
+                  value={form.zip_code}
+                  onChange={(e) => update("zip_code", e.target.value)} />
+              </div>
+
+              <div className="col-md-2">
+                <input className="form-control" placeholder="Radius"
+                  value={form.radius}
+                  onChange={(e) => update("radius", e.target.value)} />
+              </div>
+
+              <div className="col-12 d-flex gap-2">
+                <button className="btn btn-primary" onClick={search}>
+                  {loading ? "Searching..." : "Search"}
+                </button>
+                <button className="btn btn-outline-secondary" onClick={saveSearch}>
+                  Save Alert
+                </button>
+                <button className="btn btn-outline-dark" onClick={runAlerts}>
+                  Run Alerts
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN WITH BACKGROUND IMAGE */}
+      <main
+        style={{
+          backgroundImage: `linear-gradient(rgba(5,10,20,0.85), rgba(5,10,20,0.85)), url(${bgImage})`,
+          backgroundSize: "cover",
+          backgroundColor: "#0b1220",
+          backgroundPosition: "center bottom",
+          backgroundRepeat: "no-repeat",
+          minHeight: results.length === 0 ? "calc(100vh - 300px)" : "auto",
+          display: "flex",
+          alignItems: results.length === 0 ? "center" : "flex-start",
+          paddingTop: "60px",
+          paddingBottom: "60px",
+        }}
+      >
+        <div className="container py-5">
+          <div className="row g-4">
+            {sortedResults.length === 0 ? (
+              <div className="text-center text-white">
+                No results yet. Run a search.
               </div>
             ) : (
-              <div className="row g-3">
-                {results.map((r, idx) => (
-                  <div className="col-md-6" key={r.id || idx}>
-                    <div className="card h-100 shadow-sm">
-                      {r.image && (
-                        <img src={r.image} className="card-img-top" alt="car" style={{ objectFit: "cover", height: 180 }} />
-                      )}
-                      <div className="card-body">
-                        <div className="d-flex justify-content-between align-items-start">
-                          <div>
-                            <div className="fw-semibold">
-                              {r.year} {r.make} {r.model}
-                            </div>
-                            <div className="text-muted small">{r.trim || ""}</div>
-                          </div>
-                          <div className="fw-bold">${r.price?.toLocaleString?.() ?? r.price}</div>
-                        </div>
-
-                        <div className="small mt-2 text-muted">
-                          {r.dealer_name || "Dealer"} • {r.city || ""} {r.state || ""}{r.dist ? ` • ${Math.round(r.dist)} mi` : ""}
-                        </div>
-
-                        <div className="small mt-1">
-                          {r.miles ? `${r.miles.toLocaleString?.() ?? r.miles} miles` : ""}
-                        </div>
+              sortedResults.map((r, idx) => (
+                <div className="col-md-6 col-lg-4" key={idx}>
+                  <div className="card shadow-sm rounded-4 h-100">
+                    {r.image && (
+                      <img
+                        src={r.image}
+                        alt="car"
+                        className="card-img-top"
+                        style={{ height: 200, objectFit: "cover" }}
+                      />
+                    )}
+                    <div className="card-body">
+                      <h5 className="fw-bold">
+                        {r.year} {r.make} {r.model}
+                      </h5>
+                      <div className="text-primary fw-semibold">
+                        {money(r.price)}
                       </div>
-                      <div className="card-footer bg-white">
-                        {r.vdp_url ? (
-                          <a className="btn btn-sm btn-outline-primary w-100" href={r.vdp_url} target="_blank" rel="noreferrer">
-                            View Listing
-                          </a>
-                        ) : (
-                          <button className="btn btn-sm btn-outline-secondary w-100" disabled>
-                            No link available
-                          </button>
-                        )}
+                      <div className="small text-muted mt-2">
+                        {r.dealer_name || "Dealer"}
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {alerts.length > 0 && (
-              <div className="card shadow-sm mt-4">
-                <div className="card-body">
-                  <h3 className="h6">Alert Matches</h3>
-                  <ul className="mb-0">
-                    {alerts.slice(0, 6).map((a, i) => (
-                      <li key={i}>
-                        <span className="fw-semibold">{a.saved_search}:</span>{" "}
-                        {a.car.year} {a.car.make} {a.car.model} — ${a.car.price}
-                      </li>
-                    ))}
-                  </ul>
-                  {alerts.length > 6 && <div className="small text-muted mt-2">Showing first 6…</div>}
                 </div>
-              </div>
+              ))
             )}
           </div>
+
+          <footer className="text-center text-white mt-5 small">
+            GarageGuard • Demo Project • MarketCheck API
+          </footer>
         </div>
       </main>
-
-      <footer className="border-top py-4">
-        <div className="container small text-muted">
-          Demo app • Backend: FastAPI • Data: MarketCheck Inventory Search
-        </div>
-      </footer>
     </div>
   );
 }
