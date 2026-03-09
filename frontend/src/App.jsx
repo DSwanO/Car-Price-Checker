@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import bgImage from "./assets/garage-bg.jpg"; // <-- Make sure this file exists
+import logo from "./assets/logo.png"; // <-- Make sure this file exists too
 
 const API = "http://localhost:8000";
 
@@ -11,12 +12,12 @@ function money(n) {
 
 export default function App() {
   const [form, setForm] = useState({
-    make: "toyota",
-    model: "camry",
-    year: "2020",
-    zip_code: "90007",
+    make: "Ferrari",
+    model: "GTB coupe",
+    year: "2018",
+    zip_code: "90210",
     radius: "50",
-    max_price: "20000",
+    max_price: "300,000",
   });
 
   const [loading, setLoading] = useState(false);
@@ -88,69 +89,93 @@ export default function App() {
 
   return (
     <div>
-      {/* HERO */}
-      <div className="gg-hero text-white">
-        <div className="container py-4">
-          <div className="d-flex align-items-center gap-3">
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                background: "linear-gradient(135deg, #2b6cff, #1e3a8a)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 24,
-              }}
-            >
-              🛡️
-            </div>
+{/* HERO */}
+<div className="gg-hero text-white">
+  <div className="container py-4">
+    <div className="d-flex align-items-center gap-3">
+      
+      {/* Logo Container */}
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 14,
+          background: "rgba(255,255,255,0.08)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backdropFilter: "blur(6px)"
+        }}
+      >
+        <img
+          src={logo}
+          alt="GarageGuard Logo"
+          style={{
+            width: 70,
+            height: 70,
+            objectFit: "contain"
+          }}
+        />
+      </div>
 
-            <h1 className="display-5 fw-bold text-white mb-0">
-              GarageGuard
-            </h1>
-          </div>
+      {/* Brand Text */}
+      <h1 className="display-5 fw-bold text-white mb-0">
+        GarageGuard
+      </h1>
 
-          <div className="text-white-50 mt-2">
-            Smart local car price monitoring powered by MarketCheck
-          </div>
+    </div>
+
+    <div className="text-white-50 mt-2">
+      Smart local car price monitoring powered by MarketCheck
+    </div>
 
           {/* Search Card */}
           <div className="bg-white text-dark mt-4 p-4 rounded-4 shadow">
             <div className="row g-3">
               <div className="col-md-2">
-                <input className="form-control" placeholder="Make"
+                <label htmlFor="make" className="form-label fw-semibold small">Make</label>
+                <input
+                  className="form-control"
                   value={form.make}
                   onChange={(e) => update("make", e.target.value)} />
               </div>
 
               <div className="col-md-2">
-                <input className="form-control" placeholder="Model"
+                <label htmlFor="model" className="form-label fw-semibold small">Model</label>
+                <input
+                  className="form-control"
                   value={form.model}
                   onChange={(e) => update("model", e.target.value)} />
               </div>
 
               <div className="col-md-2">
-                <input className="form-control" placeholder="Year"
+                <label htmlFor="year" className="form-label fw-semibold small">Year</label>
+                <input
+                  className="form-control"
                   value={form.year}
                   onChange={(e) => update("year", e.target.value)} />
               </div>
 
               <div className="col-md-2">
-                <input className="form-control" placeholder="Max Price"
+                <label htmlFor="max_price" className="form-label fw-semibold small">Max Price</label>
+                <input
+                  className="form-control"
                   value={form.max_price}
                   onChange={(e) => update("max_price", e.target.value)} />
               </div>
 
               <div className="col-md-2">
-                <input className="form-control" placeholder="ZIP"
+                <label htmlFor="zip_code" className="form-label fw-semibold small">ZIP Code</label>
+                <input
+                  className="form-control"
                   value={form.zip_code}
                   onChange={(e) => update("zip_code", e.target.value)} />
               </div>
 
               <div className="col-md-2">
-                <input className="form-control" placeholder="Radius"
+                <label htmlFor="radius" className="form-label fw-semibold small">Radius (mi)</label>
+                <input
+                  className="form-control"
                   value={form.radius}
                   onChange={(e) => update("radius", e.target.value)} />
               </div>
@@ -174,7 +199,7 @@ export default function App() {
       {/* MAIN WITH BACKGROUND IMAGE */}
       <main
         style={{
-          backgroundImage: `linear-gradient(rgba(5,10,20,0.85), rgba(5,10,20,0.85)), url(${bgImage})`,
+          backgroundImage: `linear-gradient(rgba(5,10,20,0.55), rgba(5,10,20,0.55)), url(${bgImage})`,
           backgroundSize: "cover",
           backgroundColor: "#0b1220",
           backgroundPosition: "center bottom",
