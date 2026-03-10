@@ -62,7 +62,7 @@ def search(
     if not API_KEY:
         return {"error": "Server missing MARKETCHECK_API_KEY"}
 
-    # MarketCheck endpoint: /search/car/active  (requires api_key)  :contentReference[oaicite:5]{index=5}
+
     url = f"{BASE_URL}/search/car/active"
 
     params = {
@@ -78,11 +78,11 @@ def search(
     if make: params["make"] = make
     if model: params["model"] = model
 
-    # spatial search commonly uses zip + radius (docs show spatial examples in Inventory Search page) :contentReference[oaicite:6]{index=6}
+    
     if zip: params["zip"] = zip
     if radius: params["radius"] = str(radius)
 
-    # price filtering: docs include range filters for price :contentReference[oaicite:7]{index=7}
+
     if max_price is not None:
         params["price_range"] = f"0-{max_price}"
 
