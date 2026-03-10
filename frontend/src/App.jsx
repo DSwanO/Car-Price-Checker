@@ -46,6 +46,11 @@ export default function App() {
     setLoading(true);
     setAlerts([]);
     try {
+      const cleanedForm = {
+        ...form,
+        max_price: form.max_price.replace(/,/g, "")
+      };
+      
       const qs = new URLSearchParams(form).toString();
       const r = await fetch(`${API}/api/search?${qs}`);
       const data = await r.json();
@@ -159,6 +164,8 @@ export default function App() {
               <div className="col-md-2">
                 <label htmlFor="max_price" className="form-label fw-semibold small">Max Price</label>
                 <input
+                  type="number"
+                  id = "max_price"
                   className="form-control"
                   value={form.max_price}
                   onChange={(e) => update("max_price", e.target.value)} />
