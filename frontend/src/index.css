@@ -22,3 +22,24 @@
   border: 1px solid rgba(43,108,255,.35);
   color: #2b6cff;
 }
+
+.gg-how-it-works {
+  background: #fff;
+}
+
+.gg-feature-card {
+  background: #f8fafc;
+  border-radius: 16px;
+  transition: box-shadow 0.2s ease;
+}
+
+.gg-feature-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.gg-feature-icon {
+  color: var(--gg-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

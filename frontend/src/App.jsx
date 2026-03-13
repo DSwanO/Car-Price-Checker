@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import bgImage from "./assets/garage-bg.jpg"; // <-- Make sure this file exists
-import logo from "./assets/logo.png"; // <-- Make sure this file exists too
+import logo from "./assets/GarageGuard.png";
 
 const API = "http://localhost:8000";
 
@@ -93,9 +92,9 @@ export default function App() {
   }, [results]);
 
   return (
-    <div>
+    <div className="gg-hero text-white" style={{ minHeight: "100vh" }}>
 {/* HERO */}
-<div className="gg-hero text-white">
+<div>
   <div className="container py-4">
     <div className="d-flex align-items-center gap-3">
       
@@ -203,14 +202,68 @@ export default function App() {
         </div>
       </div>
 
-      {/* MAIN WITH BACKGROUND IMAGE */}
+      {/* HOW GARAGEGUARD WORKS */}
+      <section className="gg-how-it-works py-5 mt-5">
+        <div className="container">
+          <h2 className="text-center fw-bold mb-3" style={{ color: "#1e293b" }}>
+            How GarageGuard Works
+          </h2>
+          <p className="text-center mx-auto mb-5" style={{ maxWidth: 640, color: "#64748b" }}>
+            GarageGuard aggregates car listings from dealers nationwide. Search by make, model, year, and location—then save your searches and run alerts to find deals below your target price. One search, all the results you need.
+          </p>
+          <div className="row g-4 justify-content-center">
+            <div className="col-md-6 col-lg-4">
+              <div className="gg-feature-card text-center p-4">
+                <div className="gg-feature-icon mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                  </svg>
+                </div>
+                <h5 className="fw-bold mb-2" style={{ color: "#1e293b" }}>Just the Cars You Want</h5>
+                <p className="mb-0 small" style={{ color: "#64748b" }}>
+                  Filter by make, model, year, price range, and ZIP code. Cast your net locally or expand your radius to find the best deals.
+                </p>
+              </div>
+            </div>
+            <div className="col-md-6 col-lg-4">
+              <div className="gg-feature-card text-center p-4">
+                <div className="gg-feature-icon mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.777.416L8 13.101l-5.223 2.815A.5.5 0 0 1 2 15.5V2zm2-1a1 1 0 0 0-1 1v12.566l4.723-2.482a.5.5 0 0 1 .554 0L13 14.566V2a1 1 0 0 0-1-1H4z"/>
+                  </svg>
+                </div>
+                <h5 className="fw-bold mb-2" style={{ color: "#1e293b" }}>Save & Run Alerts</h5>
+                <p className="mb-0 small" style={{ color: "#64748b" }}>
+                  Save your favorite searches and run alerts to see listings below your max price. Never miss a deal on the car you want.
+                </p>
+              </div>
+            </div>
+            <div className="col-md-6 col-lg-4">
+              <div className="gg-feature-card text-center p-4">
+                <div className="gg-feature-icon mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M0 3a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3zm2-1a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H2z"/>
+                    <path d="M5 5.5A.5.5 0 0 1 5.5 5h5a.5.5 0 0 1 0 1h-5A.5.5 0 0 1 5 5.5zm0 2A.5.5 0 0 1 5.5 8h5a.5.5 0 0 1 0 1h-5A.5.5 0 0 1 5 7.5zm0 2A.5.5 0 0 1 5.5 10h3a.5.5 0 0 1 0 1h-3A.5.5 0 0 1 5 9.5z"/>
+                  </svg>
+                </div>
+                <h5 className="fw-bold mb-2" style={{ color: "#1e293b" }}>Powered by MarketCheck</h5>
+                <p className="mb-0 small" style={{ color: "#64748b" }}>
+                  Real-time inventory data from dealers across the country. Fresh listings and accurate prices, all in one place.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="text-center mt-4">
+            <button type="button" className="btn btn-link text-primary text-decoration-none fw-semibold" onClick={search}>
+              Start searching now →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* MAIN */}
       <main
         style={{
-          backgroundImage: `linear-gradient(rgba(5,10,20,0.55), rgba(5,10,20,0.55)), url(${bgImage})`,
-          backgroundSize: "cover",
-          backgroundColor: "#0b1220",
-          backgroundPosition: "center bottom",
-          backgroundRepeat: "no-repeat",
           minHeight: results.length === 0 ? "calc(100vh - 300px)" : "auto",
           display: "flex",
           alignItems: results.length === 0 ? "center" : "flex-start",
@@ -220,11 +273,7 @@ export default function App() {
       >
         <div className="container py-5">
           <div className="row g-4">
-            {sortedResults.length === 0 ? (
-              <div className="text-center text-white">
-                No results yet. Run a search.
-              </div>
-            ) : (
+            {sortedResults.length === 0 ? null : (
               sortedResults.map((r, idx) => (
                 <div className="col-md-6 col-lg-4" key={idx}>
                   <div className="card shadow-sm rounded-4 h-100">
