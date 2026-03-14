@@ -86,11 +86,18 @@ def search(
     if max_price is not None:
         params["price_range"] = f"0-{max_price}"
 
+    print("=== /api/search called ===")
+    print("params sent to MarketCheck:", params)
+
     r = requests.get(url, params=params, timeout=30)
+    print("MarketCheck status:", r.status_code)
+    print("MarketCheck body preview:", r.text[:500])
+
     if r.status_code != 200:
         return {"error": "MarketCheck request failed", "status": r.status_code, "body": r.text}
 
     data = r.json()
+    print("MarketCheck JSON keys:", list(data.keys()) if isinstance(data, dict) else type(data))
 
     # Normalize to UI-friendly fields (MarketCheck returns many fields; keep just what we need)
     listings = []
@@ -168,7 +175,7 @@ def alerts():
         _, name, year, make, model, zip, radius, max_price = s
         if not max_price:
             continue
-        res = search(year=year, make=make, model=model, zip_code=zip, radius=radius, max_price=max_price, rows=10)
+        res = search(year=year, make=make, model=model, zip=zip, radius=radius, max_price=max_price, rows=10)
         for car in res.get("listings", []):
             if car.get("price") is not None and car["price"] <= max_price:
                 matches.append({"saved_search": name, "car": car})
