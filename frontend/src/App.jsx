@@ -16,7 +16,7 @@ export default function App() {
     year: "2018",
     zip_code: "90210",
     radius: "50",
-    max_price: "300,000",
+    max_price: "300000",
   });
 
   const [loading, setLoading] = useState(false);
@@ -24,6 +24,7 @@ export default function App() {
   const [saved, setSaved] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [sort, setSort] = useState("price_asc");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -42,24 +43,45 @@ export default function App() {
   }, []);
 
   async function search() {
-    setLoading(true);
-    setAlerts([]);
-    try {
-      const cleanedForm = {
-        ...form,
-        max_price: form.max_price.replace(/,/g, "")
-      };
-      
-      const qs = new URLSearchParams(form).toString();
-      const r = await fetch(`${API}/api/search?${qs}`);
-      const data = await r.json();
-      setResults(Array.isArray(data?.listings) ? data.listings : []);
-    } catch {
+  setLoading(true);
+  setAlerts([]);
+  setErrorMsg("");
+
+  try {
+    const cleanedForm = {
+      ...form,
+      max_price: (form.max_price || "").replace(/,/g, ""),
+    };
+
+    const qs = new URLSearchParams(cleanedForm).toString();
+    console.log("Calling:", `${API}/api/search?${qs}`);
+
+    const r = await fetch(`${API}/api/search?${qs}`);
+    const data = await r.json();
+
+    console.log("search status:", r.status);
+    console.log("search response:", data);
+
+    if (!r.ok || data?.error) {
       setResults([]);
-    } finally {
-      setLoading(false);
+      setErrorMsg(data?.error ? `${data.error}${data.status ? ` (${data.status})` : ""}` : `Request failed (${r.status})`);
+      return;
     }
+
+    const listings = Array.isArray(data?.listings) ? data.listings : [];
+    setResults(listings);
+
+    if (listings.length === 0) {
+      setErrorMsg("Search worked, but no vehicles matched that search.");
+    }
+  } catch (err) {
+    console.error("search failed:", err);
+    setResults([]);
+    setErrorMsg(`Search failed: ${err.message}`);
+  } finally {
+    setLoading(false);
   }
+}
 
   async function saveSearch() {
     const name = prompt("Name this saved search:");
@@ -72,7 +94,7 @@ export default function App() {
       model: form.model || "",
       zip: form.zip_code || "",
       radius: form.radius || "50",
-      max_price: form.max_price || "",
+      max_price: (form.max_price || "").replace(/,/g, ""),
     });
 
     await fetch(`${API}/api/saved?${body.toString()}`, { method: "POST" });
@@ -272,6 +294,11 @@ export default function App() {
         }}
       >
         <div className="container py-5">
+          {errorMsg && (<div className="alert alert-warning mb-4" role="alert">
+            {errorMsg}
+            </div>
+          )}
+          
           <div className="row g-4">
             {sortedResults.length === 0 ? null : (
               sortedResults.map((r, idx) => (
