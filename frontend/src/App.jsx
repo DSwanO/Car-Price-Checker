@@ -275,11 +275,6 @@ export default function App() {
               </div>
             </div>
           </div>
-          <div className="text-center mt-4">
-            <button type="button" className="btn btn-link text-primary text-decoration-none fw-semibold" onClick={search}>
-              Start searching now →
-            </button>
-          </div>
         </div>
       </section>
 
