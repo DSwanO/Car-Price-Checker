@@ -9,6 +9,16 @@ function money(n) {
   return Number.isFinite(num) ? `$${num.toLocaleString()}` : `$${n}`;
 }
 
+function DetailRow({ label, value }) {
+  if (value === null || value === undefined || value === "") return null;
+  return (
+    <div className="d-flex justify-content-between gap-3 py-2 border-bottom border-secondary-subtle">
+      <span className="text-muted small">{label}</span>
+      <span className="text-end small fw-medium">{String(value)}</span>
+    </div>
+  );
+}
+
 export default function App() {
   const [form, setForm] = useState({
     make: "Ferrari",
@@ -25,6 +35,8 @@ export default function App() {
   const [alerts, setAlerts] = useState([]);
   const [sort, setSort] = useState("price_asc");
   const [errorMsg, setErrorMsg] = useState("");
+  const [selectedListing, setSelectedListing] = useState(null);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -41,6 +53,27 @@ export default function App() {
   useEffect(() => {
     loadSaved();
   }, []);
+
+  useEffect(() => {
+    if (!selectedListing) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        if (lightboxUrl) setLightboxUrl(null);
+        else setSelectedListing(null);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [selectedListing, lightboxUrl]);
+
+  useEffect(() => {
+    if (!selectedListing) setLightboxUrl(null);
+  }, [selectedListing]);
 
   async function search() {
   setLoading(true);
@@ -297,12 +330,23 @@ export default function App() {
           <div className="row g-4">
             {sortedResults.length === 0 ? null : (
               sortedResults.map((r, idx) => (
-                <div className="col-md-6 col-lg-4" key={idx}>
-                  <div className="card shadow-sm rounded-4 h-100">
+                <div className="col-md-6 col-lg-4" key={r.id ?? idx}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="card shadow-sm rounded-4 h-100 text-start border-0 gg-listing-card"
+                    onClick={() => setSelectedListing(r)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedListing(r);
+                      }
+                    }}
+                  >
                     {r.image && (
                       <img
                         src={r.image}
-                        alt="car"
+                        alt=""
                         className="card-img-top"
                         style={{ height: 200, objectFit: "cover" }}
                       />
@@ -317,12 +361,193 @@ export default function App() {
                       <div className="small text-muted mt-2">
                         {r.dealer_name || "Dealer"}
                       </div>
+                      <div className="small text-primary mt-2">Click for details →</div>
                     </div>
                   </div>
                 </div>
               ))
             )}
           </div>
+
+          {selectedListing && (
+            <div
+              className="modal fade show d-block"
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+              onClick={() => {
+                setLightboxUrl(null);
+                setSelectedListing(null);
+              }}
+            >
+              <div
+                className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="modal-content rounded-4 text-dark">
+                  <div className="modal-header border-0 pb-0">
+                    <div>
+                      <h5 className="modal-title fw-bold">
+                        {selectedListing.heading ||
+                          `${selectedListing.year} ${selectedListing.make} ${selectedListing.model}`}
+                      </h5>
+                      {selectedListing.trim && (
+                        <div className="small text-muted">{selectedListing.trim}</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      aria-label="Close"
+                      onClick={() => {
+                        setLightboxUrl(null);
+                        setSelectedListing(null);
+                      }}
+                    />
+                  </div>
+                  <div className="modal-body pt-2">
+                    {Array.isArray(selectedListing.images) && selectedListing.images.length > 0 && (
+                      <div className="row g-2 mb-3">
+                        {selectedListing.images.slice(0, 6).map((url, i) => (
+                          <div className="col-6 col-md-4" key={i}>
+                            <img
+                              src={url}
+                              alt="Car photo thumbnail"
+                              className="img-fluid rounded-3 w-100"
+                              style={{ height: 120, objectFit: "cover", cursor: "zoom-in" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxUrl(url);
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {lightboxUrl && (
+                      <div
+                        style={{
+                          position: "fixed",
+                          inset: 0,
+                          backgroundColor: "rgba(0,0,0,0.75)",
+                          zIndex: 2000,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 20,
+                        }}
+                        onClick={() => setLightboxUrl(null)}
+                      >
+                        <div
+                          style={{
+                            position: "relative",
+                            maxWidth: 1100,
+                            width: "100%",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className="btn-close"
+                            aria-label="Close photo"
+                            style={{ position: "absolute", top: -10, right: -10 }}
+                            onClick={() => setLightboxUrl(null)}
+                          />
+                          <img
+                            src={lightboxUrl}
+                            alt="Car photo"
+                            className="img-fluid rounded-4 w-100"
+                            style={{ maxHeight: "80vh", objectFit: "contain" }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div className="fw-semibold text-primary mb-2 fs-5">
+                      {money(selectedListing.price)}
+                      {selectedListing.msrp != null && selectedListing.msrp !== "" && (
+                        <span className="text-muted small ms-2 fw-normal">
+                          MSRP {money(selectedListing.msrp)}
+                        </span>
+                      )}
+                    </div>
+                    <DetailRow label="Mileage" value={selectedListing.miles != null ? `${Number(selectedListing.miles).toLocaleString()} mi` : null} />
+                    <DetailRow label="VIN" value={selectedListing.vin} />
+                    <DetailRow label="Stock #" value={selectedListing.stock_no} />
+                    <DetailRow label="Exterior" value={selectedListing.exterior_color} />
+                    <DetailRow label="Interior" value={selectedListing.interior_color} />
+                    <DetailRow label="Transmission" value={selectedListing.transmission} />
+                    <DetailRow label="Drivetrain" value={selectedListing.drivetrain} />
+                    <DetailRow label="Fuel" value={selectedListing.fuel_type} />
+                    <DetailRow label="Body" value={selectedListing.body_type} />
+                    <DetailRow label="Inventory" value={selectedListing.inventory_type} />
+                    <DetailRow label="Seller" value={selectedListing.seller_type} />
+                    <DetailRow
+                      label="Location"
+                      value={
+                        [selectedListing.city, selectedListing.state].filter(Boolean).join(", ") ||
+                        null
+                      }
+                    />
+                    {selectedListing.dist != null && selectedListing.dist !== "" && (
+                      <DetailRow label="Distance" value={`${selectedListing.dist} mi`} />
+                    )}
+                    <div className="mt-3 pt-2 border-top border-secondary-subtle">
+                      <div className="small text-muted mb-1">Dealer</div>
+                      <div className="fw-semibold">{selectedListing.dealer_name || "—"}</div>
+                      <DetailRow
+                        label="Address"
+                        value={
+                          [
+                            selectedListing.dealer_street,
+                            [selectedListing.dealer_city, selectedListing.dealer_state, selectedListing.dealer_zip]
+                              .filter(Boolean)
+                              .join(" "),
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || null
+                        }
+                      />
+                      <DetailRow label="Phone" value={selectedListing.dealer_phone} />
+                      {selectedListing.dealer_website && (
+                        <div className="small mt-2">
+                          <a
+                            href={selectedListing.dealer_website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Dealer website
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="modal-footer border-0 pt-0">
+                    {selectedListing.vdp_url && (
+                      <a
+                        className="btn btn-primary"
+                        href={selectedListing.vdp_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View full listing
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        setLightboxUrl(null);
+                        setSelectedListing(null);
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <footer className="text-center text-white mt-5 small">
             GarageGuard • Demo Project • MarketCheck API

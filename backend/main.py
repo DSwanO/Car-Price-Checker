@@ -99,23 +99,49 @@ def search(
     data = r.json()
     print("MarketCheck JSON keys:", list(data.keys()) if isinstance(data, dict) else type(data))
 
-    # Normalize to UI-friendly fields (MarketCheck returns many fields; keep just what we need)
+    def _dealer(item):
+        d = item.get("dealer")
+        return d if isinstance(d, dict) else {}
+
+    # Normalize to UI-friendly fields (MarketCheck returns many fields; keep what we need for list + detail)
     listings = []
     for item in data.get("listings", []) or data.get("data", []) or []:
+        dealer = _dealer(item)
+        media = item.get("media") if isinstance(item.get("media"), dict) else {}
+        photos = media.get("photo_links") or []
         listings.append({
             "id": item.get("id") or item.get("listing_id"),
+            "heading": item.get("heading"),
             "year": item.get("year"),
             "make": item.get("make"),
             "model": item.get("model"),
             "trim": item.get("trim"),
             "price": item.get("price"),
+            "msrp": item.get("msrp"),
             "miles": item.get("miles"),
+            "vin": item.get("vin"),
+            "stock_no": item.get("stock_no"),
             "city": item.get("city"),
             "state": item.get("state"),
-            "dealer_name": (item.get("dealer") or {}).get("name") if isinstance(item.get("dealer"), dict) else item.get("dealer_name"),
+            "exterior_color": item.get("exterior_color") or item.get("base_ext_color"),
+            "interior_color": item.get("interior_color") or item.get("base_int_color"),
+            "transmission": item.get("transmission"),
+            "drivetrain": item.get("drivetrain"),
+            "fuel_type": item.get("fuel_type"),
+            "body_type": item.get("body_style") or item.get("body_type"),
+            "inventory_type": item.get("inventory_type"),
+            "seller_type": item.get("seller_type"),
+            "dealer_name": dealer.get("name") or item.get("dealer_name"),
+            "dealer_street": dealer.get("street"),
+            "dealer_city": dealer.get("city"),
+            "dealer_state": dealer.get("state"),
+            "dealer_zip": dealer.get("zip"),
+            "dealer_phone": dealer.get("phone"),
+            "dealer_website": dealer.get("website"),
             "vdp_url": item.get("vdp_url") or item.get("source_link"),
-            "dist": item.get("dist"),  # distance (if returned)
-            "image": (item.get("media") or {}).get("photo_links", [None])[0] if isinstance(item.get("media"), dict) else None
+            "dist": item.get("dist"),
+            "image": photos[0] if photos else None,
+            "images": photos[:12],
         })
 
     return {
