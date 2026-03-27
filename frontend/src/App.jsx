@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import logo from "./assets/GarageGuard.png";
 
 const API = "http://localhost:8000";
+const HTTP_URL_RE = /^https?:\/\//i;
 
 function money(n) {
   if (n === null || n === undefined || n === "") return "—";
@@ -361,6 +362,19 @@ export default function App() {
                       <div className="small text-muted mt-2">
                         {r.dealer_name || "Dealer"}
                       </div>
+                      {r.vdp_url && HTTP_URL_RE.test(r.vdp_url) && (
+                        <a
+                          className="small text-secondary text-decoration-none"
+                          href={r.vdp_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          style={{ display: "block" }}
+                        >
+                          View on dealer site ↗
+                        </a>
+                      )}
                       <div className="small text-primary mt-2">Click for details →</div>
                     </div>
                   </div>
@@ -523,7 +537,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="modal-footer border-0 pt-0">
-                    {selectedListing.vdp_url && (
+                    {selectedListing.vdp_url && HTTP_URL_RE.test(selectedListing.vdp_url) && (
                       <a
                         className="btn btn-primary"
                         href={selectedListing.vdp_url}
