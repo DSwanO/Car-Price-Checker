@@ -6,6 +6,7 @@ import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 load_dotenv()
 
@@ -183,6 +184,18 @@ def save_search(
     new_id = cur.lastrowid
     conn.close()
     return {"ok": True, "id": new_id}
+
+@app.delete("/api/saved/{id}")
+def delete_saved(id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM saved_searches WHERE id = ?", (id,))
+    conn.commit()
+    deleted = cur.rowcount
+    conn.close()
+    if deleted == 0:
+        return JSONResponse(status_code=404, content={"error": "Not found"})
+    return {"ok": True}
 
 @app.get("/api/alerts")
 def alerts():

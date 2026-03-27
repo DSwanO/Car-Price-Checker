@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import logo from "./assets/GarageGuard.png";
 
 const API = "http://localhost:8000";
@@ -38,6 +38,7 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedListing, setSelectedListing] = useState(null);
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  const pendingSearch = useRef(false);
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -76,46 +77,56 @@ export default function App() {
     if (!selectedListing) setLightboxUrl(null);
   }, [selectedListing]);
 
-  async function search() {
-  setLoading(true);
-  setAlerts([]);
-  setErrorMsg("");
+  useEffect(() => {
+    if (pendingSearch.current) {
+      pendingSearch.current = false;
+      search();
+    }
+  }, [form]);
 
-  try {
-    const cleanedForm = {
-      ...form,
-      max_price: (form.max_price || "").replace(/,/g, ""),
-    };
+  const search = useCallback(async () => {
+    setLoading(true);
+    setAlerts([]);
+    setErrorMsg("");
 
-    const qs = new URLSearchParams(cleanedForm).toString();
-    console.log("Calling:", `${API}/api/search?${qs}`);
+    try {
+      const cleanedForm = {
+        ...form,
+        max_price: (form.max_price || "").replace(/,/g, ""),
+      };
 
-    const r = await fetch(`${API}/api/search?${qs}`);
-    const data = await r.json();
+      const qs = new URLSearchParams(cleanedForm).toString();
+      console.log("Calling:", `${API}/api/search?${qs}`);
 
-    console.log("search status:", r.status);
-    console.log("search response:", data);
+      const r = await fetch(`${API}/api/search?${qs}`);
+      const data = await r.json();
 
-    if (!r.ok || data?.error) {
+      console.log("search status:", r.status);
+      console.log("search response:", data);
+
+      if (!r.ok || data?.error) {
+        setResults([]);
+        setErrorMsg(
+          data?.error
+            ? `${data.error}${data.status ? ` (${data.status})` : ""}`
+            : `Request failed (${r.status})`
+        );
+        return;
+      }
+
+      const listings = Array.isArray(data?.listings) ? data.listings : [];
+      setResults(listings);
+
+      if (listings.length === 0) {
+        setErrorMsg("Search worked, but no vehicles matched that search.");
+      }
+    } catch (err) {
       setResults([]);
-      setErrorMsg(data?.error ? `${data.error}${data.status ? ` (${data.status})` : ""}` : `Request failed (${r.status})`);
-      return;
+      setErrorMsg(err instanceof Error ? err.message : "Search failed.");
+    } finally {
+      setLoading(false);
     }
-
-    const listings = Array.isArray(data?.listings) ? data.listings : [];
-    setResults(listings);
-
-    if (listings.length === 0) {
-      setErrorMsg("Search worked, but no vehicles matched that search.");
-    }
-  } catch (err) {
-    console.error("search failed:", err);
-    setResults([]);
-    setErrorMsg(`Search failed: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-}
+  }, [form]);
 
   async function saveSearch() {
     const name = prompt("Name this saved search:");
@@ -139,6 +150,34 @@ export default function App() {
     const r = await fetch(`${API}/api/alerts`);
     const data = await r.json();
     setAlerts(Array.isArray(data?.matches) ? data.matches : []);
+  }
+
+  async function deleteSaved(id) {
+    setErrorMsg("");
+    try {
+      const r = await fetch(`${API}/api/saved/${id}`, { method: "DELETE" });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        setErrorMsg(data?.error || `Delete failed (${r.status})`);
+        return;
+      }
+      setErrorMsg("");
+      setSaved((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      setErrorMsg(`Delete failed: ${err.message}`);
+    }
+  }
+
+  function runSaved(s) {
+    setForm({
+      make: s.make || "",
+      model: s.model || "",
+      year: s.year ? String(s.year) : "",
+      zip_code: s.zip || "",
+      radius: s.radius ? String(s.radius) : "50",
+      max_price: s.max_price ? String(s.max_price) : "",
+    });
+    pendingSearch.current = true;
   }
 
   const sortedResults = useMemo(() => {
@@ -255,6 +294,47 @@ export default function App() {
               </div>
             </div>
           </div>
+        {saved.length > 0 && (
+          <div className="mt-4 p-4 rounded-4" style={{ background: "rgba(255,255,255,0.07)" }}>
+            <h6 className="fw-semibold text-white mb-3">Saved Searches</h6>
+            {saved.map((s) => (
+              <div
+                key={s.id}
+                className="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary border-opacity-25"
+              >
+                <div>
+                  <div className="fw-medium text-white">{s.name}</div>
+                  <div className="small text-white-50">
+                    {[
+                      s.year,
+                      s.make,
+                      s.model,
+                      s.zip,
+                      s.radius && `${s.radius} mi`,
+                      s.max_price && `≤ ${money(s.max_price)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                </div>
+                <div className="d-flex gap-2">
+                  <button
+                    className="btn btn-sm btn-outline-light"
+                    onClick={() => runSaved(s)}
+                  >
+                    Search
+                  </button>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => deleteSaved(s.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         </div>
       </div>
 
