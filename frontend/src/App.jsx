@@ -4,8 +4,8 @@ import logo from "./assets/GarageGuard.png";
 const API = "http://localhost:8000";
 const HTTP_URL_RE = /^https?:\/\//i;
 
-function money(n) {
-  if (n === null || n === undefined || n === "") return "—";
+function money(n, missingLabel = "—") {
+  if (n === null || n === undefined || n === "") return missingLabel;
   const num = Number(n);
   return Number.isFinite(num) ? `$${num.toLocaleString()}` : `$${n}`;
 }
@@ -20,14 +20,82 @@ function DetailRow({ label, value }) {
   );
 }
 
+function NoPhotoPlaceholder({ className = "", style = {} }) {
+  return (
+    <div
+      className={`gg-photo-placeholder d-flex align-items-center justify-content-center text-center text-muted fw-semibold ${className}`}
+      style={style}
+    >
+      No photo available
+    </div>
+  );
+}
+
+function ListingPhoto({ src, className = "", style = {}, onClick }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return <NoPhotoPlaceholder className={className} style={style} />;
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className={className}
+      style={style}
+      onClick={onClick}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function searchParamsFromForm(form) {
+  const params = new URLSearchParams();
+  Object.entries(form).forEach(([key, value]) => {
+    if (key === "min_year" || key === "max_year") return;
+    const cleaned = key === "max_price" ? value.replace(/,/g, "") : value;
+    if (cleaned.trim() !== "") {
+      params.set(key, cleaned.trim());
+    }
+  });
+  const minYear = form.min_year.trim();
+  const maxYear = form.max_year.trim();
+  if (minYear || maxYear) {
+    params.set("year_range", `${minYear || "*"}-${maxYear || "*"}`);
+  }
+  return params;
+}
+
+function savedYearRange(form) {
+  const minYear = form.min_year.trim();
+  const maxYear = form.max_year.trim();
+  if (minYear && maxYear) return `${minYear}-${maxYear}`;
+  return minYear || maxYear || "";
+}
+
+function parseSavedYearRange(year) {
+  if (!year) return { min_year: "", max_year: "" };
+  const value = String(year);
+  if (value.includes("-")) {
+    const [minYear, maxYear] = value.split("-");
+    return {
+      min_year: minYear === "*" ? "" : minYear,
+      max_year: maxYear === "*" ? "" : maxYear,
+    };
+  }
+  return { min_year: value, max_year: value };
+}
+
 export default function App() {
   const [form, setForm] = useState({
-    make: "Ferrari",
-    model: "GTB coupe",
-    year: "2018",
+    make: "",
+    model: "",
+    min_year: "",
+    max_year: "",
     zip_code: "90210",
     radius: "50",
-    max_price: "300000",
+    max_price: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -36,11 +104,46 @@ export default function App() {
   const [alerts, setAlerts] = useState([]);
   const [sort, setSort] = useState("price_asc");
   const [errorMsg, setErrorMsg] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
+  const [vehicleMakes, setVehicleMakes] = useState([]);
+  const [vehicleModels, setVehicleModels] = useState([]);
+  const [vehicleDataError, setVehicleDataError] = useState("");
+  const [modelsLoading, setModelsLoading] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
-  const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
   const pendingSearch = useRef(false);
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const modelOptions = useMemo(() => {
+    const options = vehicleModels;
+    if (form.model && !options.includes(form.model)) {
+      return [form.model, ...options];
+    }
+    return options;
+  }, [form.model, vehicleModels]);
+  const makeOptions = useMemo(() => {
+    if (form.make && !vehicleMakes.includes(form.make)) {
+      return [form.make, ...vehicleMakes];
+    }
+    return vehicleMakes;
+  }, [form.make, vehicleMakes]);
+  const selectedImages = useMemo(
+    () => (Array.isArray(selectedListing?.images) ? selectedListing.images.filter(Boolean) : []),
+    [selectedListing]
+  );
+  const lightboxUrl = lightboxIndex !== null ? selectedImages[lightboxIndex] : null;
+
+  function showPhoto(offset) {
+    if (selectedImages.length === 0) return;
+    setLightboxIndex((current) => {
+      const index = current ?? 0;
+      return (index + offset + selectedImages.length) % selectedImages.length;
+    });
+  }
+
+  function updateMake(make) {
+    setForm((f) => ({ ...f, make, model: "" }));
+  }
 
   async function loadSaved() {
     try {
@@ -57,11 +160,84 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadVehicleMakes() {
+      try {
+        const r = await fetch(`${API}/api/vehicle-makes`);
+        const data = await r.json();
+        if (!r.ok || data?.error) {
+          throw new Error(data?.error || `Vehicle makes failed (${r.status})`);
+        }
+        if (!cancelled) {
+          setVehicleMakes(Array.isArray(data?.makes) ? data.makes : []);
+          setVehicleDataError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setVehicleDataError(err instanceof Error ? err.message : "Vehicle makes failed.");
+        }
+      }
+    }
+
+    loadVehicleMakes();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadVehicleModels() {
+      if (!form.make) {
+        setVehicleModels([]);
+        return;
+      }
+
+      setModelsLoading(true);
+      try {
+        const params = new URLSearchParams({ make: form.make });
+        if (form.min_year && form.min_year === form.max_year) {
+          params.set("year", form.min_year);
+        }
+        const r = await fetch(`${API}/api/vehicle-models?${params.toString()}`);
+        const data = await r.json();
+        if (!r.ok || data?.error) {
+          throw new Error(data?.error || `Vehicle models failed (${r.status})`);
+        }
+        if (!cancelled) {
+          setVehicleModels(Array.isArray(data?.models) ? data.models : []);
+          setVehicleDataError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setVehicleModels([]);
+          setVehicleDataError(err instanceof Error ? err.message : "Vehicle models failed.");
+        }
+      } finally {
+        if (!cancelled) {
+          setModelsLoading(false);
+        }
+      }
+    }
+
+    loadVehicleModels();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.make, form.min_year, form.max_year]);
+
+  useEffect(() => {
     if (!selectedListing) return;
     const onKey = (e) => {
       if (e.key === "Escape") {
-        if (lightboxUrl) setLightboxUrl(null);
+        if (lightboxIndex !== null) setLightboxIndex(null);
         else setSelectedListing(null);
+      } else if (lightboxIndex !== null && e.key === "ArrowLeft") {
+        showPhoto(-1);
+      } else if (lightboxIndex !== null && e.key === "ArrowRight") {
+        showPhoto(1);
       }
     };
     document.addEventListener("keydown", onKey);
@@ -71,10 +247,10 @@ export default function App() {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [selectedListing, lightboxUrl]);
+  }, [selectedListing, lightboxIndex, selectedImages.length]);
 
   useEffect(() => {
-    if (!selectedListing) setLightboxUrl(null);
+    if (!selectedListing) setLightboxIndex(null);
   }, [selectedListing]);
 
   useEffect(() => {
@@ -85,17 +261,13 @@ export default function App() {
   }, [form]);
 
   const search = useCallback(async () => {
+    setHasSearched(true);
     setLoading(true);
     setAlerts([]);
     setErrorMsg("");
 
     try {
-      const cleanedForm = {
-        ...form,
-        max_price: (form.max_price || "").replace(/,/g, ""),
-      };
-
-      const qs = new URLSearchParams(cleanedForm).toString();
+      const qs = searchParamsFromForm(form).toString();
       console.log("Calling:", `${API}/api/search?${qs}`);
 
       const r = await fetch(`${API}/api/search?${qs}`);
@@ -134,7 +306,7 @@ export default function App() {
 
     const body = new URLSearchParams({
       name,
-      year: form.year || "",
+      year: savedYearRange(form),
       make: form.make || "",
       model: form.model || "",
       zip: form.zip_code || "",
@@ -169,10 +341,12 @@ export default function App() {
   }
 
   function runSaved(s) {
+    const savedYears = parseSavedYearRange(s.year);
     setForm({
       make: s.make || "",
       model: s.model || "",
-      year: s.year ? String(s.year) : "",
+      min_year: savedYears.min_year,
+      max_year: savedYears.max_year,
       zip_code: s.zip || "",
       radius: s.radius ? String(s.radius) : "50",
       max_price: s.max_price ? String(s.max_price) : "",
@@ -230,32 +404,63 @@ export default function App() {
 
           {/* Search Card */}
           <div className="bg-white text-dark mt-4 p-4 rounded-4 shadow">
-            <div className="row g-3">
-              <div className="col-md-2">
+            <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-7 g-3">
+              <div className="col">
                 <label htmlFor="make" className="form-label fw-semibold small">Make</label>
-                <input
+                <select
+                  id="make"
                   className="form-control"
                   value={form.make}
-                  onChange={(e) => update("make", e.target.value)} />
+                  onChange={(e) => updateMake(e.target.value)}
+                >
+                  <option value="">Any make</option>
+                  {makeOptions.map((make) => (
+                    <option key={make} value={make}>
+                      {make}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="col-md-2">
+              <div className="col">
                 <label htmlFor="model" className="form-label fw-semibold small">Model</label>
-                <input
+                <select
+                  id="model"
                   className="form-control"
                   value={form.model}
-                  onChange={(e) => update("model", e.target.value)} />
+                  onChange={(e) => update("model", e.target.value)}
+                  disabled={!form.make || modelsLoading}
+                >
+                  <option value="">{modelsLoading ? "Loading models..." : "Any model"}</option>
+                  {modelOptions.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="col-md-2">
-                <label htmlFor="year" className="form-label fw-semibold small">Year</label>
+              <div className="col">
+                <label htmlFor="min_year" className="form-label fw-semibold small">Min Year</label>
                 <input
+                  id="min_year"
+                  type="number"
                   className="form-control"
-                  value={form.year}
-                  onChange={(e) => update("year", e.target.value)} />
+                  value={form.min_year}
+                  onChange={(e) => update("min_year", e.target.value)} />
               </div>
 
-              <div className="col-md-2">
+              <div className="col">
+                <label htmlFor="max_year" className="form-label fw-semibold small">Max Year</label>
+                <input
+                  id="max_year"
+                  type="number"
+                  className="form-control"
+                  value={form.max_year}
+                  onChange={(e) => update("max_year", e.target.value)} />
+              </div>
+
+              <div className="col">
                 <label htmlFor="max_price" className="form-label fw-semibold small">Max Price</label>
                 <input
                   type="number"
@@ -265,7 +470,7 @@ export default function App() {
                   onChange={(e) => update("max_price", e.target.value)} />
               </div>
 
-              <div className="col-md-2">
+              <div className="col">
                 <label htmlFor="zip_code" className="form-label fw-semibold small">ZIP Code</label>
                 <input
                   className="form-control"
@@ -273,13 +478,24 @@ export default function App() {
                   onChange={(e) => update("zip_code", e.target.value)} />
               </div>
 
-              <div className="col-md-2">
+              <div className="col">
                 <label htmlFor="radius" className="form-label fw-semibold small">Radius (mi)</label>
                 <input
+                  type="number"
+                  min="1"
+                  max="100"
                   className="form-control"
                   value={form.radius}
                   onChange={(e) => update("radius", e.target.value)} />
               </div>
+
+              {vehicleDataError && (
+                <div className="col-12">
+                  <div className="small text-warning-emphasis">
+                    {vehicleDataError}
+                  </div>
+                </div>
+              )}
 
               <div className="col-12 d-flex gap-2">
                 <button className="btn btn-primary" onClick={search}>
@@ -338,7 +554,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* HOW GARAGEGUARD WORKS */}
+      {!hasSearched && (
       <section className="gg-how-it-works py-5 mt-5">
         <div className="container">
           <h2 className="text-center fw-bold mb-3" style={{ color: "#1e293b" }}>
@@ -391,6 +607,7 @@ export default function App() {
           </div>
         </div>
       </section>
+      )}
 
       {/* MAIN */}
       <main
@@ -424,23 +641,20 @@ export default function App() {
                       }
                     }}
                   >
-                    {r.image && (
-                      <img
-                        src={r.image}
-                        alt=""
-                        className="card-img-top"
-                        style={{ height: 200, objectFit: "cover" }}
-                      />
-                    )}
+                    <ListingPhoto
+                      src={r.image}
+                      className="card-img-top"
+                      style={{ height: 200, objectFit: "cover" }}
+                    />
                     <div className="card-body">
                       <h5 className="fw-bold">
                         {r.year} {r.make} {r.model}
                       </h5>
                       <div className="text-primary fw-semibold">
-                        {money(r.price)}
+                        {money(r.price, "Contact dealer")}
                       </div>
                       <div className="small text-muted mt-2">
-                        {r.dealer_name || "Dealer"}
+                        {r.dealer_name || "Seller unavailable"}
                       </div>
                       {r.vdp_url && HTTP_URL_RE.test(r.vdp_url) && (
                         <a
@@ -471,7 +685,7 @@ export default function App() {
               aria-modal="true"
               style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
               onClick={() => {
-                setLightboxUrl(null);
+                setLightboxIndex(null);
                 setSelectedListing(null);
               }}
             >
@@ -495,24 +709,23 @@ export default function App() {
                       className="btn-close"
                       aria-label="Close"
                       onClick={() => {
-                        setLightboxUrl(null);
+                        setLightboxIndex(null);
                         setSelectedListing(null);
                       }}
                     />
                   </div>
                   <div className="modal-body pt-2">
-                    {Array.isArray(selectedListing.images) && selectedListing.images.length > 0 && (
+                    {selectedImages.length > 0 && (
                       <div className="row g-2 mb-3">
-                        {selectedListing.images.slice(0, 6).map((url, i) => (
+                        {selectedImages.map((url, i) => (
                           <div className="col-6 col-md-4" key={i}>
-                            <img
+                            <ListingPhoto
                               src={url}
-                              alt="Car photo thumbnail"
                               className="img-fluid rounded-3 w-100"
                               style={{ height: 120, objectFit: "cover", cursor: "zoom-in" }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setLightboxUrl(url);
+                                setLightboxIndex(i);
                               }}
                             />
                           </div>
@@ -531,7 +744,7 @@ export default function App() {
                           justifyContent: "center",
                           padding: 20,
                         }}
-                        onClick={() => setLightboxUrl(null)}
+                        onClick={() => setLightboxIndex(null)}
                       >
                         <div
                           style={{
@@ -546,19 +759,44 @@ export default function App() {
                             className="btn-close"
                             aria-label="Close photo"
                             style={{ position: "absolute", top: -10, right: -10 }}
-                            onClick={() => setLightboxUrl(null)}
+                            onClick={() => setLightboxIndex(null)}
                           />
+                          {selectedImages.length > 1 && (
+                            <>
+                              <button
+                                type="button"
+                                className="gg-photo-nav gg-photo-nav-prev"
+                                aria-label="Previous photo"
+                                onClick={() => showPhoto(-1)}
+                              >
+                                ‹
+                              </button>
+                              <button
+                                type="button"
+                                className="gg-photo-nav gg-photo-nav-next"
+                                aria-label="Next photo"
+                                onClick={() => showPhoto(1)}
+                              >
+                                ›
+                              </button>
+                            </>
+                          )}
                           <img
                             src={lightboxUrl}
                             alt="Car photo"
                             className="img-fluid rounded-4 w-100"
                             style={{ maxHeight: "80vh", objectFit: "contain" }}
                           />
+                          {selectedImages.length > 1 && lightboxIndex !== null && (
+                            <div className="text-center text-white small mt-2">
+                              {lightboxIndex + 1} / {selectedImages.length}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
                     <div className="fw-semibold text-primary mb-2 fs-5">
-                      {money(selectedListing.price)}
+                      {money(selectedListing.price, "Contact dealer")}
                       {selectedListing.msrp != null && selectedListing.msrp !== "" && (
                         <span className="text-muted small ms-2 fw-normal">
                           MSRP {money(selectedListing.msrp)}
@@ -575,7 +813,7 @@ export default function App() {
                     <DetailRow label="Fuel" value={selectedListing.fuel_type} />
                     <DetailRow label="Body" value={selectedListing.body_type} />
                     <DetailRow label="Inventory" value={selectedListing.inventory_type} />
-                    <DetailRow label="Seller" value={selectedListing.seller_type} />
+                    <DetailRow label="Seller" value={selectedListing.dealer_name || selectedListing.seller_type} />
                     <DetailRow
                       label="Location"
                       value={
@@ -603,17 +841,6 @@ export default function App() {
                         }
                       />
                       <DetailRow label="Phone" value={selectedListing.dealer_phone} />
-                      {selectedListing.dealer_website && (
-                        <div className="small mt-2">
-                          <a
-                            href={selectedListing.dealer_website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Dealer website
-                          </a>
-                        </div>
-                      )}
                     </div>
                   </div>
                   <div className="modal-footer border-0 pt-0">
@@ -631,7 +858,7 @@ export default function App() {
                       type="button"
                       className="btn btn-outline-secondary"
                       onClick={() => {
-                        setLightboxUrl(null);
+                        setLightboxIndex(null);
                         setSelectedListing(null);
                       }}
                     >

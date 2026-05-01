@@ -53,3 +53,46 @@
   transform: translateY(-2px);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12) !important;
 }
+
+.gg-photo-placeholder {
+  background:
+    linear-gradient(135deg, rgba(226, 232, 240, 0.9), rgba(248, 250, 252, 0.95));
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #64748b;
+  min-height: 120px;
+}
+
+.gg-photo-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 32px;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.gg-photo-nav:hover,
+.gg-photo-nav:focus {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.gg-photo-nav-prev {
+  left: 12px;
+}
+
+.gg-photo-nav-next {
+  right: 12px;
+}
+
+@media (min-width: 992px) {
+  .row-cols-lg-7 > * {
+    flex: 0 0 auto;
+    width: 14.285714%;
+  }
+}
