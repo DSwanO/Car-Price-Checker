@@ -323,13 +323,23 @@ def get_saved():
 @app.post("/api/saved")
 def save_search(
     name: str,
-    year: Optional[int] = None,
+    year: Optional[str] = None,
     make: Optional[str] = None,
     model: Optional[str] = None,
     zip: Optional[str] = None,
     radius: Optional[int] = 50,
     max_price: Optional[int] = None,
 ):
+    def blank_to_none(v):
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
+    year = blank_to_none(year)
+    make = blank_to_none(make)
+    model = blank_to_none(model)
+    zip = blank_to_none(zip)
+
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -354,14 +364,20 @@ def delete_saved(id: int):
     return {"ok": True}
 
 @app.get("/api/alerts")
-def alerts():
+def alerts(saved_id: Optional[int] = None):
     """
-    Demo-friendly: checks saved searches and returns any listings below max_price.
-    (In a real app you'd schedule this.)
+    Returns listings below each saved search's max_price.
+    Pass saved_id to scope the check to a single saved search.
     """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT id, name, year, make, model, zip, radius, max_price FROM saved_searches")
+    if saved_id is not None:
+        cur.execute(
+            "SELECT id, name, year, make, model, zip, radius, max_price FROM saved_searches WHERE id = ?",
+            (saved_id,),
+        )
+    else:
+        cur.execute("SELECT id, name, year, make, model, zip, radius, max_price FROM saved_searches")
     saved = cur.fetchall()
     conn.close()
 
