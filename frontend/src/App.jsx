@@ -372,6 +372,7 @@ export default function App() {
       max_price: s.max_price ? String(s.max_price) : "",
     });
     pendingSearch.current = true;
+    setSavedExpanded(false);
   }
 
   const sortedResults = useMemo(() => {
